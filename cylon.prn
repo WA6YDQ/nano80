@@ -1,0 +1,56 @@
+
+Reading from source file cylon.asm
+
+Number of tokens found in file is 48
+
+outport	equ	0
+
+org	0000
+
+0000 31 4E 00	lxi sp STACK (004EH)
+0003 AF		xra a
+0004 D3 00	out outport
+0006 3C		inr a
+0007 D3 00	out outport
+
+0009	loop1
+0009 07		rlc
+000A D3 00	out outport
+000C CD 22 00	call delay (0022H)
+000F FE 80	cpi 80h
+0011 C2 09 00	jnz loop1 (0009H)
+
+0014	loop2
+0014 0F		rrc
+0015 D3 00	out outport
+0017 CD 22 00	call delay (0022H)
+001A FE 01	cpi 1
+001C C2 14 00	jnz loop2 (0014H)
+001F C3 09 00	jmp loop1 (0009H)
+
+0022	delay
+0022 01 20 01	lxi b 0120h
+
+0025	d1
+0025 0D		dcr c
+0026 C2 25 00	jnz d1 (0025H)
+0029 05		dcr b
+002A C2 25 00	jnz d1 (0025H)
+002D C9		ret
+002E	DS 20h
+
+004E	STACK
+
+Labels Used: 6
+
+outport     	0000H
+loop1     	0009H
+loop2     	0014H
+delay     	0022H
+d1     	0025H
+STACK     	004EH
+
+Last address used is 004DH (77 decimal)
+
+End of assembly.
+
