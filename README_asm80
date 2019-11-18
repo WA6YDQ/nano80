@@ -1,0 +1,107 @@
+This is the readme for asm80.c
+
+This is a 3 pass assembler for 8080 code. It uses
+standard nmumonics as stated in the Intel MCS-85 book.
+
+The following directives exist:
+
+-----------------
+
+org/ORG	- set the address at this point.
+
+EX:
+
+org	1000	; use address 1000 decimal
+ORG	0100H	; use address 100 hex
+org	A0H	; use address A0 hex
+ORG	startram	; use address defined by an equ earlier
+
+An example is:
+
+startram	equ	0100H
+org	startram	; equiv to org 0100H
+
+-----------------
+
+
+equ/EQU	 - define equates
+
+EX:
+
+cr	equ	0dh	; 0d hex
+lf	EQU	0AH	; 0a hex
+progbuf	equ	2200	; 2200 decimal 
+
+-----------------
+
+Note that equ/EQU and org/ORG is case insensitive
+as is the hex addresses (0aH is the same as 0Ah or 0AH)
+
+------------------
+
+Labels - 
+
+Labels can be any length and include leters of both cases 
+and include numbers. A trailing colon (:) is not needed.
+
+EX:
+
+start	nop
+	jmp	start
+
+start2	mov a,m
+	ret
+
+Labels are case sensitive. START is not the same as start.
+
+----------------
+
+Op Codes - 
+
+Standard Intel op codes are used.
+
+Multi-byte opcodes have this format:
+
+jmp	0100H	; go to address 100 hex
+jmp	10	; go to address 10
+jmp	start	; go to address contained in the start label
+lxi h,	memstart	; note space between comma and memstart label.
+			; this space (or tab) is needed.
+mvi a,	10
+  or 
+mvi a 10
+
+This comma/space sequence is only used for multi-byte opcodes.
+Single byte opcodes have the normal form:
+
+mov a,m
+mov b,c
+
+----------------------
+
+The output of the assembler is 2 files: 
+
+an output file called [file].com which is a 
+direct memory dump of the addembled output
+which can be used by sim80
+
+and a print file called [file].prn
+which can be used for debugging etc.
+
+To compile the file called  sys.asm do the following:
+
+asm80 sys.asm
+
+The assmebler will create 2 files:
+sys.prn
+sys.com
+
+-------------------------
+
+
+The source code of the assembler has more info. 
+
+
+Kurt Theis
+<theis.kurt@gmail.com>
+
