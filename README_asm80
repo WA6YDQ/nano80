@@ -82,8 +82,8 @@ mov b,c
 The output of the assembler is 2 files: 
 
 an output file called [file].com which is a 
-direct memory dump of the addembled output
-which can be used by sim80
+direct memory dump of the assembled output
+which can be used by sim80/whatever.
 
 and a print file called [file].prn
 which can be used for debugging etc.
@@ -92,7 +92,7 @@ To compile the file called  sys.asm do the following:
 
 asm80 sys.asm
 
-The assmebler will create 2 files:
+The assembler will create 2 files:
 sys.prn
 sys.com
 
