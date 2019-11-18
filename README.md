@@ -18,3 +18,7 @@ The serial port is defined so that your 8080 has a serial port in addition to 8 
 toggle switches for input/output.
 
 I'm sure there are bugs. Please let me know so I can fix them.
+
+Also here is asm80.c
+This is a command line 8080 assembler I wrote some time ago. Tested under Linux, compiled with gcc.
+To compile: cc -o asm80 asm80.c
