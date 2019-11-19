@@ -33,7 +33,7 @@ program (if the assembled program actually starts elsewhere).
 created by the assembler asm80.
 
 This is done with the program com2bl (included here).
-com2bl (com to bootloader) reads the .com filesize and created a file
+com2bl (com to bootloader) reads the .com filesize and creates a file
 with the filesize as the first 2 bytes, and the rest of the .com file attached 
 after.
 
