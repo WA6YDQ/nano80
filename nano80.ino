@@ -460,7 +460,9 @@ void putpush(int reg, int data) {
 }
 
 
-int parity(unsigned char ptest) {    /* test for parity */
+
+/* test for parity */
+int parity(unsigned char ptest) {    
     int p=0;
 
     if (ptest==0)   /* odd parity/no parity */
@@ -609,6 +611,15 @@ begin:
             Serial.print(tmpout);
         }
 
+
+        /* This is the instruction decoder. Much is lifted from
+         * https://github.com/simh/simh/blob/master/ALTAIR/altair_cpu.c
+         * since it's smaller and cleaner than my orig code. I cleaned
+         * up some things for this build, and tightened some code. Any bugs
+         * introduced are on me.
+        */
+
+
         if (OP == 0x76) {    // HLT, stop until reset
             halt(); 
         }
@@ -708,7 +719,7 @@ begin:
         }
 
 
-        if ((OP & 0xCF) == 0xC5) {                    // PUSH
+        if ((OP & 0xCF) == 0xC5) {                  // PUSH
             temp = getpush((OP >> 4) & 0x03);
             StackP--;
             fram.write8(StackP,(temp >> 8) & 0xff);
