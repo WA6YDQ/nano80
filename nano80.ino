@@ -63,8 +63,8 @@ void reset(void) {
     digitalWrite(RUNLED,0);     // turn OFF run led
     if (digitalRead(LOAD) == 0) {       // pressing "load" at reset or power on will load prom to ram
         //
-        while (digitalRead(LOAD) == 0) { 
-            delay(DEBOUNCE);
+        while (digitalRead(LOAD) == 0) { // not implimented yet - FRAM acts like rom
+            delay(DEBOUNCE);             // may not be needed. we'll see.
         continue;
         }
         delay(DEBOUNCE);
@@ -203,7 +203,8 @@ void halt(void) {
     digitalWrite(HALTLED,0);    // clear HALT led
     while (digitalRead(RESET) == 0) continue;
     delay(DEBOUNCE);
-    loop();
+    return;
+
 }
 
 
@@ -622,6 +623,7 @@ begin:
 
         if (OP == 0x76) {    // HLT, stop until reset
             halt(); 
+            goto begin;     // restart at 0
         }
 
         if ((OP & 0xC0)==0x40) {                    // MOV DEST,SRC
