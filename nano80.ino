@@ -448,11 +448,11 @@ void putpush(int reg, int data) {
         case 3:
             A = (data >> 8) & 0xff;
             S = Z = AC = P = C = 0;
-            if (data & 0x80) S  = 0200000;
-            if (data & 0x40) Z  = 0200000;
-            if (data & 0x10) AC = 0200000;
-            if (data & 0x04) P  = 0200000;
-            if (data & 0x01) C  = 0200000;
+            if (data & 0x80) S  = 1;
+            if (data & 0x40) Z  = 1;
+            if (data & 0x10) AC = 1;
+            if (data & 0x04) P  = 1;
+            if (data & 0x01) C  = 1;
             break;
         default:
             break;
