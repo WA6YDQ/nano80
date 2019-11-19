@@ -1,8 +1,8 @@
 # nano80
-Arduino nano 8080 emulator as s single board computer with FRAM, a front panel and LCD display
+Arduino nano 8080 emulator: a single board computer with FRAM, a front panel and LCD display.
 
-This is an 8080 simulator/emulator for an arduino nano. It uses about 12K of memory and
-appx 500 bytes of ram (dynamic memory).
+This is an 8080 simulator/emulator for an Arduino Nano. It uses about 12K of memory and
+appx 600 bytes of ram (dynamic memory).
 
 This is a front panel programmable computer, something like the single board trainers used in the 
 70's and 80's in colleges. Using a few switches and push buttons, along with some led's and a 
