@@ -18,17 +18,29 @@ The serial port is defined so that your 8080 has a serial port in addition to 8 
 toggle switches for input/output.
 
 I'm sure there are bugs. Please let me know so I can fix them.
-
+--------------------------
 Also here is asm80.c
 
 This is a command line 8080 assembler I wrote some time ago. Tested under Linux, compiled with gcc.
 To compile: cc -o asm80 asm80.c
 
 I've added a bootloader program in 8080 assembler. See README.bootloader for info.
-
 Also included is the .c program com2bl.c
+Tested under Linux, compiled with gcc.
+To compile: cc -o com2bl com2bl.c
 
 This is a small file to prepare .com files to be uploaded to the nano80 using the bootloader.
+--------------------------
+
+There are some 8080 source code files for testing the system. 
+sertest.asm is a simple test of the serial port. 
+cylon.asm is a flashy lights program.
+
+There is a program called dump.c
+This is a hex dump program I wrote to view object code files. MIT license applies.
+
+--Kurt
+
 
 
 
