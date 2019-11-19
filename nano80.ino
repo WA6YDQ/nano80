@@ -14,7 +14,7 @@
 #include "Adafruit_FRAM_I2C.h"
 
 #define MAXMEM 32768     // maximum RAM size
-#define SERIALSPEED 19200
+#define SERIALSPEED 9600
 #define DEBUG 0          // 0: no debugging serial output (except at halt), 
                          // 1: show address and opcode on serial port while running
 
@@ -497,11 +497,7 @@ void output(byte val, byte address) {
     }
     
     if (address == 1) {     // serial output
-        if (val < 32) {     // not printable ascii, show hex value (you may not want this)
-            Serial.print(val,HEX);
-            return;
-        }
-        Serial.print(val);
+        Serial.write(val);
         return;
     }
 
