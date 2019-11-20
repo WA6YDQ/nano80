@@ -2,10 +2,12 @@
  * This is an 8080 simulator specifically for the
  * Arduino Nano. It uses an I2C 32K byte FRAM chip for main memory,
  * a front panel to program memory includinga 1x8 LCD, 8 toggle switches,
- * and 6 momentary buttons.
+ * and 6 momentary buttons. The memory is from 0000h thru 7fffh.
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.01 11/20/2019 minor change to reset()
+ * version 1.0  11/18/2019 released to wild
  */
 
 #include <string.h>
@@ -77,7 +79,6 @@ void reset(void) {
         delay(DEBOUNCE);
     }
     delay(DEBOUNCE);
-    digitalWrite(RUNLED,1);     // turn ON run led
     return;
 }
 
@@ -590,7 +591,8 @@ begin:
     digitalWrite(RUNLED,1);
 
     while (true) {
-        if (digitalRead(RESET) == 0) goto begin;    // calling loop() resets the arduino
+        if (digitalRead(RESET) == 0) goto begin;    // calling loop() resets the arduino, so we use a goto
+        
         if (digitalRead(RUNHALT)) {
             delay(DEBOUNCE);
             frontpanel();  // if halt sw enabled, go to loader. Else run.
