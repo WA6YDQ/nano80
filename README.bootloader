@@ -1,24 +1,9 @@
-   I've written a simple boot loader for the nano80.
-It's called bl.asm and can be assembled with the asm80 
-program (included here).
+   I've written a simple boot loader for the nano80 that is part 
+of the nano80 code but is written in intel 8080 assembler.
+Look for the routine called bootcode in the arduino source. That 
+is where the object code is loaded to high memory. The actual 8080
+source code is in bl.asm.
 
-The output of bl.asm is:
-
-7FC0  21 00 00 AF D3 00 DB 02 FE 00 CA C6 7F DB 01 47
-7FD0  DB 01 4F DB 01 D3 00 77 23 0B AF B9 C2 D3 7F B8
-7FE0  C2 D3 7F AF D3 00 76 00 00 00 00 00 00 00 00 00
-
-Load this into memory at 0x7FC0 then jump to address 0x0000
-and load in the following 3 bytes:
-
-0000 C3 C0 7F
-
-This is a jmp 7FC0 command.
-With both loaded in, press reset. The nano80 computer will execute 
-the jump instruction and start the boot loader.
-
-(One advantage of using FRAM is the program will stay in memory after 
-power is removed).
 
 The bootloader will test the serial port until bytes are available.
 When bytes start coming in, it will store the first 2 bytes into register BC.
@@ -45,8 +30,11 @@ With a suitable 8080 assembler program run:
 
 ./com2bl file.com file.hex
 
-The file file.hex will be the program to be loaded into memory by the bootloader
+The program file.hex will be the program to be loaded into memory by the bootloader
 running on the nano80.
+
+While nano80 machine is powered up, pressing and holding the Load button and
+then pressing the reset button will change the running address to the bootloader.
 
 Use a terminal program (I use minicom) send the file file.hex as an ascii upload.
 The LED's on port 0 of the nano80 will flash as the file is loaded. When the file is
@@ -55,26 +43,24 @@ finished loading, the LED's will extinguish and the HALT led will light.
 At this point, your program is loaded starting at 0x0000. Press the reset button and your
 program will start running.
 
--------------------
-
 Here is an example:
 
-pi@pi4:~/8080 $ asm80 cylon.asm
+write the 8080 source code and assemeble it:
+asm80 file.asm
 
-Assembly Complete.
-pi@pi4:~/8080 $ ./com2bl cylon.com cylon.hex
-Filesize is of cylon.com is 79 bytes
-File written
-pi@pi4:~/8080 $ 
+run com2bl to add the byte count:
+./com2bl file.com file.hex
 
-Now start the bootloader and start minicom.
-Press ctrl-A S and scroll down to select 'ascii'
-You will be presented with a list of files. Scroll down and select cylon.hex
-The bootloader will load the file, the LED's will flash and when the load is
-completed the LED's will extinguish and the HALT LED will light up.
+Start your comm package (I use minicom).
 
-Press the 'reset' button on the computer (not on the arduino nano).
-The program cylon will start running and the led's will flash back and forth.
+On the nano80 machine, press and hole the LOAD button,
+press reset, release the load button. The nano80 will 
+start the bootloader. 
+
+Upload the file (ctrl-A S on minicom, then select file.hex to upload).
+While uploading the led's on port 0 will flash.
+When the upload is completed, the halt led on nano80 will light.
+
+Press reset on the nano80. Your just loaded program will start running.
 
  
-

@@ -6,6 +6,8 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.02 11/20/2019 wrote inline bootloader, load/reset starts it
+ * (see README.bootloader)
  * version 1.01 11/20/2019 minor change to reset()
  * version 1.0  11/18/2019 released to wild
  */
@@ -13,6 +15,7 @@
 #include <string.h>
 #include <LiquidCrystal.h>
 #include <Wire.h>
+#include <avr/pgmspace.h>
 #include "Adafruit_FRAM_I2C.h"
 
 #define MAXMEM 32768     // maximum RAM size
@@ -60,6 +63,25 @@ void debug() {
     return;
 }
 
+/* pre-load a bootloader to hi ram */
+void bootloader() { 
+    const  uint8_t bootcode[] = { \
+         0x21,0,0,0xaf,0xd3,0,0xdb,2,0xfe,0,0xca,0xc6,0x7f,0xdb,1,0x47, \
+         0xdb,1,0x4f,0xdb,1,0xd3,0,0x77,0x23,0x0b,0xaf,0xb9,0xc2,0xd3,0x7f, \
+         0xb8,0xc2,0xd3,0x7f,0xaf,0xd3,0,0x76,0x00 \
+         };
+         
+    uint16_t adr = 0x7fc0;   // initial address
+    uint8_t dat;
+    /* write the boot code to hi fram */
+    for (uint8_t offset=0; offset <= 39; offset++) {
+        dat = bootcode[offset];
+        fram.write8(adr+offset,dat);
+    }
+    /* done */
+    return;    
+}
+
 /* reset the processor */
 void reset(void) {
     digitalWrite(RUNLED,0);     // turn OFF run led
@@ -67,10 +89,19 @@ void reset(void) {
         //
         while (digitalRead(LOAD) == 0) { // not implimented yet - FRAM acts like rom
             delay(DEBOUNCE);             // may not be needed. we'll see.
-        continue;
+            continue;
         }
         delay(DEBOUNCE);
+        PC = 0x7fc0;    // set address for bootloader
+        digitalWrite(HALTLED, 0);   // turn OFF HALT led
+        while (digitalRead(RESET) == 0) {
+            delay(DEBOUNCE);
+        }
+        delay(DEBOUNCE);
+        return;
     }
+
+    // load not pressed, normal reset
     PC = A = BC = DE = HL = StackP = 0; // The real 8080 doesn't clear these
     Z = C = S = AC = P = INTE = 0;      // on reset. Remove this if you want.
 
@@ -581,11 +612,12 @@ void setup(void) {
     Wire.endTransmission();
   
     Serial.begin(SERIALSPEED);
+    bootloader();                   // write bootloader code to hi memory
     Serial.println("Restart");
 
 }
 
-void loop() {
+void loop() {  
 begin:
     reset();    /* initialize everything but memory */
     digitalWrite(RUNLED,1);
