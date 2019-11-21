@@ -20,7 +20,7 @@
 #include "Adafruit_FRAM_I2C.h"
 
 #define MAXMEM 32768     // maximum RAM size
-#define SERIALSPEED 19200
+#define SERIALSPEED 1200    // because of i2c writes, 1200bps is a reliable serial speed.
 #define DEBUG 0          // 0: no debugging serial output (except at halt), 
                          // 1: show address and opcode on serial port while running
 
@@ -85,8 +85,8 @@ void clrmem() {
 void bootloader() { 
     const  uint8_t bootcode[] = { \
          0x21,0,0,0xaf,0xd3,0,0xdb,2,0xfe,0,0xca,0xc6,0x7f,0xdb,1,0x47, \
-         0xdb,1,0x4f,0xdb,1,0xd3,0,0x5f,0x3e,0x13,0xd3,1,0x73,0x23,0x0b,0x3e, \
-         0x11,0xd3,1,0xaf,0xb8,0xc2,0xd3,0x7f,0xb9,0xc2,0xd3,0x7f,0xaf,0xd3,0 \
+         0xdb,1,0x4f,0xdb,1,0xd3,0,0x77,0x23,0x0b,0xaf,0xb8,0xc2,0xd3,0x7f,0xb9, \
+         0xc2,0xd3,0x7f,0xaf,0xd3,0,0x76
          };
          
     uint16_t adr;
@@ -587,7 +587,12 @@ byte input(byte address) {
     }
     
     if (address == 1) {         // return next available serial byte
-        return Serial.read();
+        int val;
+        while (true) {
+            val = Serial.read();
+            if (val == -1) continue;
+            return val;
+        }
     }
     
     if (address == 2) {         // return number of bytes ready on the serial port
