@@ -6,6 +6,7 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.02a 11/20/2019 fixed bootloader byte sequence
  * version 1.02 11/20/2019 wrote inline bootloader, load/reset starts it
  * (see README.bootloader)
  * version 1.01 11/20/2019 minor change to reset()
@@ -19,7 +20,7 @@
 #include "Adafruit_FRAM_I2C.h"
 
 #define MAXMEM 32768     // maximum RAM size
-#define SERIALSPEED 9600
+#define SERIALSPEED 19200
 #define DEBUG 0          // 0: no debugging serial output (except at halt), 
                          // 1: show address and opcode on serial port while running
 
@@ -45,6 +46,7 @@
 uint16_t    PC, A, BC, DE, HL, StackP, temp, carry, hi, lo;
 uint8_t     OP;
 bool        C, Z, P, AC, S, INTE;
+int BOOTFLAG = 0;
 
 LiquidCrystal lcd(rs,e,d4,d5,d6,d7);
 Adafruit_FRAM_I2C fram = Adafruit_FRAM_I2C();
@@ -60,21 +62,38 @@ void debug() {
     char flags[strlen("Z:%d  C:%d  S:%d  AC:%d  P:%d\n")+1];
     sprintf(flags,"Z:%d  C:%d  S:%d  AC:%d  P:%d\n",Z,C,S,AC,P);
     Serial.print(flags);
+    Serial.println();
     return;
 }
+
+/* clear FRAM, then load the boot loader in hi memory */
+void clrmem() {
+    uint16_t adr;
+    uint8_t dat;
+    lcd.home();
+    lcd.print("Clr Mem ");
+    /* first clear FRAM */
+    for (adr=0; adr < 32768; adr++) 
+        fram.write8(adr,0);
+    bootloader();
+    lcd.clear();
+    return;
+}
+
 
 /* pre-load a bootloader to hi ram */
 void bootloader() { 
     const  uint8_t bootcode[] = { \
          0x21,0,0,0xaf,0xd3,0,0xdb,2,0xfe,0,0xca,0xc6,0x7f,0xdb,1,0x47, \
-         0xdb,1,0x4f,0xdb,1,0xd3,0,0x77,0x23,0x0b,0xaf,0xb9,0xc2,0xd3,0x7f, \
-         0xb8,0xc2,0xd3,0x7f,0xaf,0xd3,0,0x76,0x00 \
+         0xdb,1,0x4f,0xdb,1,0xd3,0,0x5f,0x3e,0x13,0xd3,1,0x73,0x23,0x0b,0x3e, \
+         0x11,0xd3,1,0xaf,0xb8,0xc2,0xd3,0x7f,0xb9,0xc2,0xd3,0x7f,0xaf,0xd3,0 \
          };
          
-    uint16_t adr = 0x7fc0;   // initial address
+    uint16_t adr;
     uint8_t dat;
     /* write the boot code to hi fram */
-    for (uint8_t offset=0; offset <= 39; offset++) {
+    adr = 0x7fc0;       // initial boot loader address
+    for (uint8_t offset=0; offset < 53; offset++) {
         dat = bootcode[offset];
         fram.write8(adr+offset,dat);
     }
@@ -85,14 +104,25 @@ void bootloader() {
 /* reset the processor */
 void reset(void) {
     digitalWrite(RUNLED,0);     // turn OFF run led
-    if (digitalRead(LOAD) == 0) {       // pressing "load" at reset or power on will load prom to ram
-        //
-        while (digitalRead(LOAD) == 0) { // not implimented yet - FRAM acts like rom
-            delay(DEBOUNCE);             // may not be needed. we'll see.
+
+    if (digitalRead(STEPMINUS) == 0) {  // press STEPMINUS and reset will
+        clrmem();                       // clear memory and reload the bootloader file
+        while (digitalRead(STEPMINUS) == 0) {
+            delay(DEBOUNCE);
+        delay(DEBOUNCE);
+        }
+    }
+    
+    if (digitalRead(LOAD) == 0) {       // pressing "load" at reset will jump to the boot loader
+        while (digitalRead(LOAD) == 0) { 
+            delay(DEBOUNCE);             
             continue;
         }
         delay(DEBOUNCE);
         PC = 0x7fc0;    // set address for bootloader
+        lcd.home();
+        lcd.print("Boot Ldr ");
+        BOOTFLAG = 1;       // read by halt()
         digitalWrite(HALTLED, 0);   // turn OFF HALT led
         while (digitalRead(RESET) == 0) {
             delay(DEBOUNCE);
@@ -118,6 +148,7 @@ void reset(void) {
 void updatelcd() {
     char lcd_addr[5];
     char lcd_data[3];
+    lcd.clear();
     sprintf(lcd_addr,"%4.4X",PC);
     if (PC >= MAXMEM)   // account for missing memory
             OP=0x00;
@@ -222,6 +253,10 @@ void frontpanel() {
 
 void halt(void) {
     digitalWrite(RUNLED,0);     // turn off RUN led
+    if (BOOTFLAG == 1) {        // turned on by reset/load buttons
+        lcd.clear();
+        BOOTFLAG = 0;
+    }
     digitalWrite(HALTLED, 1);   // turn on HALT led
     debug();
     while (true) {
@@ -229,7 +264,10 @@ void halt(void) {
             frontpanel();
             digitalWrite(RUNLED,0);
         }
-        if (digitalRead(RESET) == 0) break;
+        if (digitalRead(RESET) == 0) {
+            reset();
+            break;
+        }
     }
     delay(DEBOUNCE);
     digitalWrite(HALTLED,0);    // clear HALT led
@@ -549,11 +587,11 @@ byte input(byte address) {
     }
     
     if (address == 1) {         // return next available serial byte
-        return Serial.read() & 0xFF;
+        return Serial.read();
     }
     
     if (address == 2) {         // return number of bytes ready on the serial port
-        return Serial.available() & 0xFF;
+        return Serial.available();
     }
     
     return 0;
@@ -734,7 +772,7 @@ begin:
             if (cond((OP >> 3) & 0x07) == 1) {
                 PC = fram.read8(StackP);
                 StackP++;
-                PC |= (fram.read8(StackP) << 8) & 0xff00;
+                PC |= ((fram.read8(StackP) << 8) & 0xff00);
                 StackP++;
             }
             PC += 1;
@@ -942,10 +980,10 @@ begin:
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 StackP--;
-                PC++;
-                fram.write8(StackP,(PC >> 8) & 0xff);
+                PC++;       // point to address after call
+                fram.write8(StackP,(PC >> 8) & 0xff);   // write hi
                 StackP--;
-                fram.write8(StackP,PC & 0xff);
+                fram.write8(StackP,PC & 0xff);          // write lo
                 PC = (hi << 8) + lo;
                 break;
             }
