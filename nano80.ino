@@ -2,10 +2,12 @@
  * This is an 8080 simulator specifically for the
  * Arduino Nano. It uses an I2C 32K byte FRAM chip for main memory,
  * a front panel to program memory includinga 1x8 LCD, 8 toggle switches,
- * and 6 momentary buttons. The memory is from 0000h thru 7fffh.
+ * and 6 momentary buttons. The memory (non-volatile) is from 0000h thru 7fffh.
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.02c 11/21/2019 fix issue with conditional return, shorten code
+ * version 1.02b 11/21/2019 max baud 1200, fixed boot loader & serial read()
  * version 1.02a 11/20/2019 fixed bootloader byte sequence
  * version 1.02 11/20/2019 wrote inline bootloader, load/reset starts it
  * (see README.bootloader)
@@ -763,9 +765,9 @@ begin:
                 hi = fram.read8(++PC);
                 PC++;
                 StackP--;
-                fram.write8(StackP,(PC >> 8) & 0xff);
+                fram.write8(StackP,((PC >> 8) & 0xff));
                 StackP--;
-                fram.write8(StackP,PC & 0xff);
+                fram.write8(StackP,(PC & 0xff));
                 PC = (hi << 8) + lo;
             } else {
                 PC += 3;
@@ -779,8 +781,9 @@ begin:
                 StackP++;
                 PC |= ((fram.read8(StackP) << 8) & 0xff00);
                 StackP++;
+            } else {
+                PC += 1;
             }
-            PC += 1;
             continue;
         }
 
@@ -984,19 +987,17 @@ begin:
             case 0xcd: {                        // CALL
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
-                StackP--;
                 PC++;       // point to address after call
-                fram.write8(StackP,(PC >> 8) & 0xff);   // write hi
-                StackP--;
-                fram.write8(StackP,PC & 0xff);          // write lo
-                PC = (hi << 8) + lo;
+                fram.write8(--StackP,((PC >> 8) & 0xff));   // write hi
+                fram.write8(--StackP,(PC & 0xff));          // write lo
+                PC = ((hi << 8) & 0xff) + lo;
                 break;
             }
 
             case 0xc9: {                        // RET
             PC = fram.read8(StackP);
             StackP++;
-            PC |= (fram.read8(StackP) << 8) & 0xff00;
+            PC |= ((fram.read8(StackP) << 8) & 0xff00);
             StackP++;
             break;
             }
