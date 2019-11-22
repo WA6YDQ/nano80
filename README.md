@@ -20,7 +20,8 @@ arduino ram.
 Note: think of this as an 8080 running at about 1mhz with extremly long 
 memory wait states. It takes 14 seconds to read/write 32K bytes to the FRAM.
 That's about 2 bytes/msec. Going to SPI instead of I2C will resolve this 
-but I use those lines for other things.
+but I use those lines for other things. Also, the biggest SPI chip I saw was 
+8K. Not enough.
 
 The serial port is defined so that your 8080 has a serial port in 
 addition to 8 led's and 8 toggle switches for input/output. Default speed
@@ -36,20 +37,27 @@ Also here is asm80.c
 
 This is a command line 8080 assembler I wrote some time ago. Tested 
 under Linux, compiled with gcc. 
-  To compile: cc -o asm80 asm80.c
+
+To compile: cc -o asm80 asm80.c
+
 There are some .asm examples for using the assembler as well as a README file.
 
 ------------------------------------
 
 There are some 8080 source code files for testing the system. 
-  sertest.asm 
+
+sertest.asm 
+
 is a simple test of the serial port. 
-  cylon.asm 
+
+cylon.asm 
+
 is a flashy lights program.
 
 There is a program called dump.c This is a hex dump program 
 I wrote to view object code files. 
-  Compile with cc -o dump dump.c
+
+Compile with cc -o dump dump.c
   
   
 MIT license applies to all code here unless described otherwise.
