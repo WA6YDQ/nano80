@@ -6,6 +6,7 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.03  11/22/2019 removed all bootloader code. fram access is too slow for it
  * version 1.02c 11/21/2019 fix issue with conditional return, shorten code
  * version 1.02b 11/21/2019 max baud 1200, fixed boot loader & serial read()
  * version 1.02a 11/20/2019 fixed bootloader byte sequence
@@ -22,7 +23,8 @@
 #include "Adafruit_FRAM_I2C.h"
 
 #define MAXMEM 32768     // maximum RAM size
-#define SERIALSPEED 1200    // because of i2c writes, 1200bps is a reliable serial speed.
+#define SERIALSPEED 9600 // Serial.write works till the buffer is filled.
+                         // Because of slowwwww FRAM memory access, don't expect much. 
 #define DEBUG 0          // 0: no debugging serial output (except at halt), 
                          // 1: show address and opcode on serial port while running
 
@@ -77,31 +79,13 @@ void clrmem() {
     /* first clear FRAM */
     for (adr=0; adr < 32768; adr++) 
         fram.write8(adr,0);
-    bootloader();
     lcd.clear();
     return;
 }
 
 
-/* pre-load a bootloader to hi ram */
-void bootloader() { 
-    const  uint8_t bootcode[] = { \
-         0x21,0,0,0xaf,0xd3,0,0xdb,2,0xfe,0,0xca,0xc6,0x7f,0xdb,1,0x47, \
-         0xdb,1,0x4f,0xdb,1,0xd3,0,0x77,0x23,0x0b,0xaf,0xb8,0xc2,0xd3,0x7f,0xb9, \
-         0xc2,0xd3,0x7f,0xaf,0xd3,0,0x76
-         };
-         
-    uint16_t adr;
-    uint8_t dat;
-    /* write the boot code to hi fram */
-    adr = 0x7fc0;       // initial boot loader address
-    for (uint8_t offset=0; offset < 53; offset++) {
-        dat = bootcode[offset];
-        fram.write8(adr+offset,dat);
-    }
-    /* done */
-    return;    
-}
+
+
 
 /* reset the processor */
 void reset(void) {
@@ -115,25 +99,9 @@ void reset(void) {
         }
     }
     
-    if (digitalRead(LOAD) == 0) {       // pressing "load" at reset will jump to the boot loader
-        while (digitalRead(LOAD) == 0) { 
-            delay(DEBOUNCE);             
-            continue;
-        }
-        delay(DEBOUNCE);
-        PC = 0x7fc0;    // set address for bootloader
-        lcd.home();
-        lcd.print("Boot Ldr ");
-        BOOTFLAG = 1;       // read by halt()
-        digitalWrite(HALTLED, 0);   // turn OFF HALT led
-        while (digitalRead(RESET) == 0) {
-            delay(DEBOUNCE);
-        }
-        delay(DEBOUNCE);
-        return;
-    }
 
-    // load not pressed, normal reset
+
+    // normal reset
     PC = A = BC = DE = HL = StackP = 0; // The real 8080 doesn't clear these
     Z = C = S = AC = P = INTE = 0;      // on reset. Remove this if you want.
 
@@ -368,7 +336,7 @@ int16_t getpair(int16_t reg)
 
 
 /* Put a value into an 8080 register pair */
-void putpair(int16_t reg, int16_t val)
+void putpair(int16_t reg, uint16_t val) // was int16_t val
 {
     switch (reg) {
         case 0:
@@ -657,7 +625,7 @@ void setup(void) {
     Wire.endTransmission();
   
     Serial.begin(SERIALSPEED);
-    bootloader();                   // write bootloader code to hi memory
+    
     Serial.println("Restart");
 
 }
@@ -684,7 +652,7 @@ begin:
         if (DEBUG) {
             char tmpout[strlen("PC:%4.4X  OP:%2.2X\n")+1];
             sprintf(tmpout,"PC:%4.4X  OP:%2.2X\n",PC,OP);
-            Serial.print(tmpout);
+            Serial.println(tmpout);
         }
 
 
@@ -716,9 +684,11 @@ begin:
 
 
         if ((OP & 0xCF) == 0x01) {                  // LXI nn
-            temp = fram.read8(++PC) & 0x00ff;
-            temp = temp | ((fram.read8(++PC) <<8) & 0xFF00);
-            putpair((OP >> 4) & 0x03, temp);
+            //temp = fram.read8(++PC) & 0x00ff;
+            //temp = temp | ((fram.read8(++PC) <<8) & 0xff00);
+            temp = fram.read8(++PC);
+            temp += (fram.read8(++PC) * 256);
+            putpair(((OP >> 4) & 0x03), temp);
             PC += 1;
             continue;
         }
@@ -764,11 +734,14 @@ begin:
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 PC++;
-                StackP--;
-                fram.write8(StackP,((PC >> 8) & 0xff));
-                StackP--;
-                fram.write8(StackP,(PC & 0xff));
-                PC = (hi << 8) + lo;
+                //StackP--;
+                //fram.write8(StackP,((PC >> 8) & 0xff));
+                //StackP--;
+                //fram.write8(StackP,(PC & 0xff));
+                fram.write8(--StackP,(PC & 0xff00) >> 8);
+                fram.write8(--StackP,(PC & 0xff));
+                //PC = (hi << 8) + lo;
+                PC = (hi * 256) + lo;
             } else {
                 PC += 3;
             }
@@ -985,12 +958,21 @@ begin:
             }
 
             case 0xcd: {                        // CALL
+                //Serial.print("CALL from addr ");
+                //Serial.print(PC,HEX);
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 PC++;       // point to address after call
-                fram.write8(--StackP,((PC >> 8) & 0xff));   // write hi
-                fram.write8(--StackP,(PC & 0xff));          // write lo
-                PC = ((hi << 8) & 0xff) + lo;
+                //fram.write8(--StackP,((PC >> 8) & 0xff));   // write hi
+                //fram.write8(--StackP,(PC & 0xff));          // write lo
+                --StackP;
+                fram.write8(StackP,(PC & 0xff00) >> 8);
+                --StackP;
+                fram.write8(StackP,(PC & 0xff));
+                //PC = ((hi << 8) & 0xff) + lo;
+                PC = (hi * 256) + lo;
+                //Serial.print("  CALL ");
+                //Serial.println(PC,HEX);
                 break;
             }
 
