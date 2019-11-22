@@ -1,0 +1,40 @@
+
+Reading from source file sertest.asm
+
+Number of tokens found in file is 33
+
+
+org	0000
+
+STATUS	equ	2
+SIN	equ	1
+SOUT	equ	1
+LED	equ	0
+
+0000	start
+0000 DB 02	in STATUS
+0002 FE 00	cpi 0
+0004 CA 00 00	jz start (0000H)
+0007 4F		mov c,a
+
+0008	loop
+0008 DB 01	in SIN
+000A D3 01	out SOUT
+000C D3 00	out LED
+000E 0D		dcr c
+000F C2 08 00	jnz loop (0008H)
+0012 C3 00 00	jmp start (0000H)
+
+Labels Used: 6
+
+STATUS     	0002H
+SIN     	0001H
+SOUT     	0001H
+LED     	0000H
+start     	0000H
+loop     	0008H
+
+Last address used is 0014H (20 decimal)
+
+End of assembly.
+
