@@ -6,6 +6,8 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.04  11/25/2019 SBB: a=a-n-C change, added intel HEX bootloader. Uses custom backend
+ * uploader w/20msec delays between HEX lines. Needed for FRAM.
  * version 1.03  11/22/2019 removed all bootloader code. fram access is too slow for it
  * version 1.02c 11/21/2019 fix issue with conditional return, shorten code
  * version 1.02b 11/21/2019 max baud 1200, fixed boot loader & serial read()
@@ -71,7 +73,7 @@ void debug() {
 }
 
 /* clear FRAM, then load the boot loader in hi memory */
-void clrmem() {
+void clrmem() {     // called from reset()
     uint16_t adr;
     uint8_t dat;
     lcd.home();
@@ -83,8 +85,71 @@ void clrmem() {
     return;
 }
 
+/* read intel .hex records from the serial port  
+ *  This needs a custom uploader (see upload.c in repository) to properly
+ *  deal with the FRAM wait states. The uploader sends an intel HEX file
+ *  line by line with a 20msec delay at the end of each line. This allows 
+ *  time to send the data to the FRAM memory as well as dealing with the 
+ *  limited ram buffer for the serial port.
+ */
+void bootload () {
 
+    int cnt, bytenum, addr, recordtype, dat, cd = 0;
+    uint8_t record[80];
+    uint8_t tdat[4] = {0,0,0,0};
+    lcd.home();
+    lcd.print("booting ");
+    /* main read & store loop */
 
+    while (Serial.available() == 0) continue;   // wait for data  
+dlloop:
+    for (cnt=0;cnt<79;cnt++) record[cnt]=0;
+    cd = 0;
+    cnt = 0;
+    if (Serial.available()==0) goto dlloop;
+    while (1) {
+        dat = Serial.read();
+        if (dat == -1) continue;    // wait till data arrives
+        if (dat == 0x3a) continue;  // start char
+        if (dat == '\n') break;
+        tdat[cd]=dat & 0xff;
+        cd++;
+        if (cd<2) continue;         // combine bytes
+        cd = 0;
+         if (tdat[0] > 0x39) tdat[0]-=7;        // convert from ascii
+         tdat[0]-=0x30;
+         if (tdat[1] > 0x39) tdat[1]-=7;
+         tdat[1]-=0x30;
+        record[cnt] = ((16*tdat[0]) + tdat[1]);
+        output(record[cnt],0);      // display byte on LED's (eye candy)
+        if (cnt==0) bytenum = record[0];    // 0 because we skip the ':'
+        /* count=0  address=1-2   record type=3  bytenum+1=checksum */
+        if (cnt==3) recordtype = record[3];
+        cnt++;
+    }
+    if (recordtype == 0) {      // ignore other record types for now
+        // now store the record
+        addr = (256*record[1])+record[2];
+        for (cd=0; cd<bytenum;cd++) {
+            fram.write8(addr,record[cd+4]);
+            addr++;
+        }  
+        goto dlloop;
+    }
+     // ignore record type other than 0  
+
+    output(0,0);        // clear the LED's
+    lcd.home();
+    lcd.print(addr,HEX);
+    lcd.print("        ");
+    delay(1000);
+    lcd.home();
+    lcd.print("Done    ");
+    delay(1000);
+    
+    lcd.clear();
+    return;
+}
 
 
 /* reset the processor */
@@ -93,12 +158,19 @@ void reset(void) {
 
     if (digitalRead(STEPMINUS) == 0) {  // press STEPMINUS and reset will
         clrmem();                       // clear memory and reload the bootloader file
-        while (digitalRead(STEPMINUS) == 0) {
+        while (digitalRead(STEPMINUS) == 0) { 
             delay(DEBOUNCE);
-        delay(DEBOUNCE);
         }
+        delay(DEBOUNCE);
     }
-    
+
+    if (digitalRead(LOAD) == 0) {
+        bootload();
+        while (digitalRead(LOAD) == 0) {
+            delay(DEBOUNCE);
+        }
+        delay(DEBOUNCE);
+    }
 
 
     // normal reset
@@ -114,7 +186,7 @@ void reset(void) {
 }
 
 
-/* show address/data on a 1x8 LCD */
+/* show address/data (based on PC/OP) on a 1x8 LCD */
 void updatelcd() {
     char lcd_addr[5];
     char lcd_data[3];
@@ -821,7 +893,7 @@ begin:
         if ((OP & 0xF8) == 0x98) {                  // SBB
             carry = 0;
             if (C) carry = 1;
-            A -= (getreg(OP & 0x07)) + carry ;
+            A -= ((getreg(OP & 0x07)) - carry) ;
             setarith(A);
             A = A & 0xFF;
             PC += 1;

@@ -1,0 +1,62 @@
+There is a boot loader for the nano80. This lets you
+upload large files in Intel .hex format from a remote
+computer to the nano80.
+
+The proceedure is as follows:
+
+Assemble your source code program. Using the included
+assembler asm80:
+
+asm80 cylon.asm
+
+The output will be 2 files:
+cylon.prn	assembled output suitable for printing
+cylon.com	binary files in CP/M .com format
+
+Now use the ihex program to convert the .com file to 
+Intel .hex format:
+ihex cylon.com
+
+The output will cylon.hex and look like the following:
+:10000000314E00AFD3003CD30007D300CD2200FE19
+:1000100080C209000FD300CD2200FE01C21400C32C
+:1000200009000120010DC2250005C22500C90000FC
+:1000300000000000000000000000000000000000C0
+:0F004000000000000000000000000000000000B1
+:00000001FF
+
+This is an ascii file that we will upload to the nano80.
+
+Connect your serial cable between the nano80 and
+your computer. Place the nono80 in run mode (RUN/HALT
+switch in RUN position).
+
+Now press and hold the LOAD button while momentaraly
+pressing the nano80 reset switch (NOT the arduino reset 
+button). 
+
+The LCD display will show 'Booting'
+
+Now on your computer, run
+upload cylon.hex
+
+The LED's will flash on the nano80 and when the data 
+is done uploading the last address used will be displayed
+on the LCD display. Then the word 'Done' will be displayed
+for a second and the nano80 will start running your just
+uploaded program.
+
+NOTE:
+
+Because of the way the arduino uploads code, when starting your 
+upload, the arduino may reset. It WILL reset the first time you
+upload your code using 'upload' and the first time you use a terminal
+program to talk to the serial port because of the way the 
+arduino senses the DTR line.
+
+If this happens, just restart the boot load process and 
+it will run just fine. There are ways to stop this, but
+they involve butchering your arduino nano. 
+
+Your choice.
+ 
