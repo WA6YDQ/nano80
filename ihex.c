@@ -72,7 +72,6 @@ int main(int argc, char **argv) {
 		cnt++;
 	}
 	// cnt is filesize
-	//printf("filesize is %d\n",cnt);
 	rewind(infile);
 	while (cnt-adr>0) {
 		fprintf(hexfile,":");	// start of record
@@ -106,30 +105,29 @@ int main(int argc, char **argv) {
 			adr++;		// make sure address keeps up with bytes send
 		}
 		val = ((uint8_t)~chksum)+1;	// make two's compliment
-		//val = 0xaa;	// dummy checksum
 		fprintf(hexfile,"%c",val);	// binary file
 		fprintf(outfile,"%2.2X",val);
 		fprintf(outfile,"\n");		// need \n here
-		if (cc >= 16) continue;
-		//printf("last cnt-adr=%d\n",cnt-adr);
-		/* now send last record  :00000001FF */
-		fprintf(hexfile,":");		// binary file
-		fprintf(outfile,":");		// ascii file
-		val = 0;
-		fprintf(hexfile,"%c",val);	// bytecount
-		fprintf(outfile,"%2.2X",val);
-		fprintf(hexfile,"%c",val);	// adr hi
-		fprintf(outfile,"%2.2X",val);
-		fprintf(hexfile,"%c",val);	// adr lo
-		fprintf(outfile,"%2.2X",val);
-		val = 1;
-		fprintf(hexfile,"%c",val);	// end char
-		fprintf(outfile,"%2.2X",val);
-		val = 0xff;
-		fprintf(hexfile,"%c",val);	// end checksum
-		fprintf(outfile,"%2.2X\n",val);
-		break;
+		continue;
 	}
+
+	/* now send last record  :00000001FF */
+	fprintf(hexfile,":");		// binary file
+	fprintf(outfile,":");		// ascii file
+	val = 0;
+	fprintf(hexfile,"%c",val);	// bytecount
+	fprintf(outfile,"%2.2X",val);
+	fprintf(hexfile,"%c",val);	// adr hi
+	fprintf(outfile,"%2.2X",val);
+	fprintf(hexfile,"%c",val);	// adr lo
+	fprintf(outfile,"%2.2X",val);
+	val = 1;
+	fprintf(hexfile,"%c",val);	// end char
+	fprintf(outfile,"%2.2X",val);
+	val = 0xff;
+	fprintf(hexfile,"%c",val);	// end checksum
+	fprintf(outfile,"%2.2X\n",val);
+	
 	// done
 	fflush(outfile); fflush(hexfile);
 	fclose(outfile); fclose(hexfile);
