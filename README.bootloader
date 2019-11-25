@@ -17,7 +17,7 @@ Now use the ihex program to convert the .com file to
 Intel .hex format:
 ihex cylon.com
 
-The output will cylon.hex and look like the following:
+The output will be cylon.hex and look like the following:
 :10000000314E00AFD3003CD30007D300CD2200FE19
 :1000100080C209000FD300CD2200FE01C21400C32C
 :1000200009000120010DC2250005C22500C90000FC
@@ -35,7 +35,7 @@ Now press and hold the LOAD button while momentaraly
 pressing the nano80 reset switch (NOT the arduino reset 
 button). 
 
-The LCD display will show 'Booting'
+The LCD display will show 'booting'
 
 Now on your computer, run
 upload cylon.hex
