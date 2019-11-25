@@ -1,5 +1,5 @@
 nano80 - An Arduino powered 8080 single board computer.
-
+======================
 
 This is an 8080 simulator/emulator for an Arduino Nano. It uses about 
 12K of memory and appx 600 bytes of ram (dynamic memory).
@@ -49,8 +49,8 @@ upload is a serial based uploader that allows for the slow memory
 access of the FRAM memory chip.
 
 to compile these 2 programs:
-cc -o ihex ihex.c
-cc -o upload upload.c
+- cc -o ihex ihex.c
+- cc -o upload upload.c
 
 -----------------------------------
 
@@ -59,7 +59,7 @@ Also here is asm80.c
 This is a command line 8080 assembler I wrote some time ago. Tested 
 under Linux, compiled with gcc. To compile: 
 
-cc -o asm80 asm80.c
+- cc -o asm80 asm80.c
 
 asm80 uses standard intel 8080 nmemonics. It is NOT a macro assembler.
 
@@ -76,7 +76,7 @@ I wrote to view object code files.
 
 Compile with:
 
-cc -o dump dump.c
+- cc -o dump dump.c
 
 -----------------------------------
 
