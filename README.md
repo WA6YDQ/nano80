@@ -23,12 +23,12 @@ The serial port is defined so that your 8080 has a serial port in
 addition to 8 led's and 8 toggle switches for input/output.
 
 The input/output ports are defined as follows:
-IN 0x00 is the toggle switches
-IN 0x01 is the serial port using the arduino
-IN 0x02 returns the number of available bytes on the serial port
+- IN 0x00 is the toggle switches
+- IN 0x01 is the serial port using the arduino
+- IN 0x02 returns the number of available bytes on the serial port
 
-OUT 0x00 is the 8 LED's 
-OUT 0x01 is the serial port using the arduino
+- OUT 0x00 is the 8 LED's 
+- OUT 0x01 is the serial port using the arduino
 
 ------------------------------
 
@@ -42,13 +42,14 @@ and lights get old fast. The boot loader lets you assemble large
 programs and upload then. See README.bootloader for use.
 
 There are two programs used to create and send the .hexfiles:
-ihex.c and upload.c
+- ihex.c
+- upload.c
 
-ihex converts the .com output of the assembler into intel .hex files
+ihex converts the .com output of the assembler into intel .hex files.
 upload is a serial based uploader that allows for the slow memory 
 access of the FRAM memory chip.
 
-to compile these 2 programs:
+To compile these 2 programs:
 - cc -o ihex ihex.c
 - cc -o upload upload.c
 
@@ -66,8 +67,9 @@ asm80 uses standard intel 8080 nmemonics. It is NOT a macro assembler.
 -----------------------------------
 
 There are some 8080 source code files for testing the system. 
-sertest.asm is a simple test of the serial port. 
-cylon.asm is a flashy lights program.
+
+- sertest.asm is a simple test of the serial port. 
+- cylon.asm is a flashy lights program.
 
 -----------------------------------
 
