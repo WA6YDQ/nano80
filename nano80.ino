@@ -6,6 +6,7 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.04a 11/25/2019 SBB fix it right this time
  * version 1.04  11/25/2019 SBB: a=a-n-C change, added intel HEX bootloader. Uses custom backend
  * uploader w/20msec delays between HEX lines. Needed for FRAM.
  * version 1.03  11/22/2019 removed all bootloader code. fram access is too slow for it
@@ -893,7 +894,7 @@ begin:
         if ((OP & 0xF8) == 0x98) {                  // SBB
             carry = 0;
             if (C) carry = 1;
-            A -= ((getreg(OP & 0x07)) - carry) ;
+            A = A - getreg(OP & 0x07) - carry;
             setarith(A);
             A = A & 0xFF;
             PC += 1;
