@@ -6,6 +6,7 @@
  * 
  * (C) k theis 11/2019
  * 
+ * version 1.04b 11/25/2019 fix things in debug() 
  * version 1.04a 11/25/2019 SBB fix it right this time
  * version 1.04  11/25/2019 SBB: a=a-n-C change, added intel HEX bootloader. Uses custom backend
  * uploader w/20msec delays between HEX lines. Needed for FRAM.
@@ -60,15 +61,15 @@ Adafruit_FRAM_I2C fram = Adafruit_FRAM_I2C();
 
 /* send debugging info to the serial port */
 void debug() {
-    char crnt[strlen("PC%4.4X  OP:%2.2X\n")+1];
-    sprintf(crnt,"PC%4.4X  OP:%2.2X\n",PC,OP);
-    Serial.print(crnt);
-    char regs[strlen("A:%2.2X  BC:%4.4X  DE:%4.4X  HL:%4.4X\n")+1];
-    sprintf(regs,"A:%2.2X  BC:%4.4X  DE:%4.4X  HL:%4.4X\n",A,BC,DE,HL);
-    Serial.print(regs);
-    char flags[strlen("Z:%d  C:%d  S:%d  AC:%d  P:%d\n")+1];
-    sprintf(flags,"Z:%d  C:%d  S:%d  AC:%d  P:%d\n",Z,C,S,AC,P);
-    Serial.print(flags);
+    char crnt[strlen("PC:%4.4X  OP:%2.2X")+1];
+    sprintf(crnt,"PC:%4.4X  OP:%2.2X",PC,OP);
+    Serial.println(crnt);
+    char regs[strlen("A:%2.2X  BC:%4.4X  DE:%4.4X  HL:%4.4X  SP:%4.4X")+1];
+    sprintf(regs,"A:%2.2X  BC:%4.4X  DE:%4.4X  HL:%4.4X  SP:%4.4X",A,BC,DE,HL,StackP);
+    Serial.println(regs);
+    char flags[strlen("Z:%d  C:%d  S:%d  AC:%d  P:%d")+1];
+    sprintf(flags,"Z:%d  C:%d  S:%d  AC:%d  P:%d",Z,C,S,AC,P);
+    Serial.println(flags);
     Serial.println();
     return;
 }
@@ -733,7 +734,7 @@ begin:
          * https://github.com/simh/simh/blob/master/ALTAIR/altair_cpu.c
          * since it's smaller and cleaner than my orig code. I cleaned
          * up some things for this build, and tightened some code. Any bugs
-         * introduced are on me.
+         * introduced are on me.  -kurt
         */
 
 
@@ -757,8 +758,6 @@ begin:
 
 
         if ((OP & 0xCF) == 0x01) {                  // LXI nn
-            //temp = fram.read8(++PC) & 0x00ff;
-            //temp = temp | ((fram.read8(++PC) <<8) & 0xff00);
             temp = fram.read8(++PC);
             temp += (fram.read8(++PC) * 256);
             putpair(((OP >> 4) & 0x03), temp);
@@ -807,10 +806,6 @@ begin:
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 PC++;
-                //StackP--;
-                //fram.write8(StackP,((PC >> 8) & 0xff));
-                //StackP--;
-                //fram.write8(StackP,(PC & 0xff));
                 fram.write8(--StackP,(PC & 0xff00) >> 8);
                 fram.write8(--StackP,(PC & 0xff));
                 //PC = (hi << 8) + lo;
@@ -944,7 +939,6 @@ begin:
             if (long(HL) + long(getpair((OP >> 4) & 0x03) > 0xffff))
                 C = 1;
             HL += getpair((OP >> 4) & 0x03);
-            //HL = HL & 0xFFFF;
             PC += 1;
             continue;
         }
@@ -1031,21 +1025,15 @@ begin:
             }
 
             case 0xcd: {                        // CALL
-                //Serial.print("CALL from addr ");
-                //Serial.print(PC,HEX);
+
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 PC++;       // point to address after call
-                //fram.write8(--StackP,((PC >> 8) & 0xff));   // write hi
-                //fram.write8(--StackP,(PC & 0xff));          // write lo
                 --StackP;
                 fram.write8(StackP,(PC & 0xff00) >> 8);
                 --StackP;
                 fram.write8(StackP,(PC & 0xff));
-                //PC = ((hi << 8) & 0xff) + lo;
                 PC = (hi * 256) + lo;
-                //Serial.print("  CALL ");
-                //Serial.println(PC,HEX);
                 break;
             }
 
@@ -1060,7 +1048,6 @@ begin:
             /* Data Transfer instructions */
             
             case 0x32: {                        // STA
-                //lo = mem[++PC];
                 lo = fram.read8(++PC);
                 hi = fram.read8(++PC);
                 PC += 1;
