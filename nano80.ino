@@ -3,11 +3,14 @@
  * Arduino Nano. It uses an I2C 32K byte FRAM chip for main memory,
  * a front panel to program memory includinga 1x8 LCD, 8 toggle switches,
  * and 6 momentary buttons. The memory (non-volatile) is from 0000h thru 7fffh.
+ * There is boot loader code to remotely program memory.
+ * This makes a very good 8080 software development tool and play toy.
  * 
- * (C) k theis 11/2019
+ * (C) k theis 11/2019 MIT license applies.
  * 
+ * version 1.04c 11/26/2019 Change docs, removed unused vars. No functional changes.
  * version 1.04b 11/25/2019 fix things in debug() 
- * version 1.04a 11/25/2019 SBB fix it right this time
+ * version 1.04a 11/25/2019 SBB: fix it right this time
  * version 1.04  11/25/2019 SBB: a=a-n-C change, added intel HEX bootloader. Uses custom backend
  * uploader w/20msec delays between HEX lines. Needed for FRAM.
  * version 1.03  11/22/2019 removed all bootloader code. fram access is too slow for it
@@ -15,7 +18,6 @@
  * version 1.02b 11/21/2019 max baud 1200, fixed boot loader & serial read()
  * version 1.02a 11/20/2019 fixed bootloader byte sequence
  * version 1.02 11/20/2019 wrote inline bootloader, load/reset starts it
- * (see README.bootloader)
  * version 1.01 11/20/2019 minor change to reset()
  * version 1.0  11/18/2019 released to wild
  */
@@ -54,7 +56,7 @@
 uint16_t    PC, A, BC, DE, HL, StackP, temp, carry, hi, lo;
 uint8_t     OP;
 bool        C, Z, P, AC, S, INTE;
-int BOOTFLAG = 0;
+
 
 LiquidCrystal lcd(rs,e,d4,d5,d6,d7);
 Adafruit_FRAM_I2C fram = Adafruit_FRAM_I2C();
@@ -129,7 +131,7 @@ dlloop:
         if (cnt==3) recordtype = record[3];
         cnt++;
     }
-    if (recordtype == 0) {      // ignore other record types for now
+    if (recordtype == 0) {      // load data from DATA record type
         // now store the record
         addr = (256*record[1])+record[2];
         for (cd=0; cd<bytenum;cd++) {
@@ -138,7 +140,7 @@ dlloop:
         }  
         goto dlloop;
     }
-     // ignore record type other than 0  
+     // ignore record type other than 0 for now (will need for 8086 etc)
 
     output(0,0);        // clear the LED's
     lcd.home();
@@ -159,7 +161,7 @@ void reset(void) {
     digitalWrite(RUNLED,0);     // turn OFF run led
 
     if (digitalRead(STEPMINUS) == 0) {  // press STEPMINUS and reset will
-        clrmem();                       // clear memory and reload the bootloader file
+        clrmem();                       // clear memory (FRAM)
         while (digitalRead(STEPMINUS) == 0) { 
             delay(DEBOUNCE);
         }
@@ -178,6 +180,7 @@ void reset(void) {
     // normal reset
     PC = A = BC = DE = HL = StackP = 0; // The real 8080 doesn't clear these
     Z = C = S = AC = P = INTE = 0;      // on reset. Remove this if you want.
+                                        // (The Z80 DOES set some to FFFFh, ie. SP)
 
     digitalWrite(HALTLED, 0);   // turn OFF HALT led
     while (digitalRead(RESET) == 0) {
@@ -297,10 +300,7 @@ void frontpanel() {
 
 void halt(void) {
     digitalWrite(RUNLED,0);     // turn off RUN led
-    if (BOOTFLAG == 1) {        // turned on by reset/load buttons
-        lcd.clear();
-        BOOTFLAG = 0;
-    }
+
     digitalWrite(HALTLED, 1);   // turn on HALT led
     debug();
     while (true) {
@@ -339,7 +339,7 @@ uint16_t getreg(uint16_t reg) {
         case 5:     // L
             return (HL & 0x00ff);
         case 6:     // (HL)
-            return fram.read8(HL);      // (mem[HL]);
+            return fram.read8(HL);
         case 7:
             return (A);
         default:
@@ -378,7 +378,7 @@ void putreg(uint16_t reg, uint16_t val)
             HL = HL | val;
             break;
         case 6:
-            fram.write8(HL,val & 0xff);   // mem[HL]
+            fram.write8(HL,val & 0xff);
             break;
         case 7:
             A = val & 0xff;
@@ -433,20 +433,20 @@ void putpair(int16_t reg, uint16_t val) // was int16_t val
 
 /* Set flags based on val */
 void setarith(int val) {
-    if (val & 0x100)
+    if (val & 0x100)    // >= 256
         C = 1;
     else
         C = 0;
-    if (val & 0x80) {
+    if (val & 0x80) {   // negative
         S = 1;
     } else {
-        S = 0;
+        S = 0;          // positive
     }
     if ((val & 0xff) == 0)
         Z = 1;
     else
         Z = 0;
-    AC = 0;
+    AC = 0;             // only true w/8080, not for Z80
     parity(val);
 
 }
@@ -454,7 +454,7 @@ void setarith(int val) {
 /* set flags after logical op */
 void setlogical(int32_t reg)
 {
-    C = 0;
+    C = 0;      // always  (AND A opcode will clear CY)
     if (reg & 0x80) {
         S = 1;
     } else {
@@ -468,7 +468,7 @@ void setlogical(int32_t reg)
     parity(reg);
 }
 
-/* set flags after INR/DCR operation */
+/* set flags after INR/DCR operation (8 bit only)*/
 void setinc(int reg) {
     if (reg & 0x80) {
         S = 1;
@@ -520,7 +520,7 @@ int cond(int con)
     return (0);
 }
 
-/* get value of register pair in PUSH format */
+/* get value of register pair */
 int getpush(int reg) {
 
     int stat;
@@ -547,7 +547,7 @@ int getpush(int reg) {
     return 0;
 }
 
-/* put value of register pair in PUSH format */
+/* put value of register pair */
 void putpush(int reg, int data) {
 
     switch (reg) {
@@ -597,10 +597,10 @@ int parity(unsigned char ptest) {
 
 
 
-/* take 8 bit value and addr, send to device */
-/* Output Port 0: send a byte to LED's thru i2c device */
-/* Output Port 1: send a byte to the serial port       */
-
+/* take 8 bit value and addr, send to device 
+ * Output Port 0: send a byte to LED's thru i2c device 
+ * Output Port 1: send a byte to the serial port       
+*/
 void output(byte val, byte address) {
     if (address == 0) {     // send byte in A to LED's
         Wire.beginTransmission(0x20);   // set up output
@@ -620,10 +620,11 @@ void output(byte val, byte address) {
 }
 
 
-/* read byte from input device, return as byte */
-/* Input Port 0: read a byte from the 12c port (switches) */
-/* Input Port 1: Read a byte from the serial port         */
-/* Input Port 2: Return Serial Port Status (1=byte ready) */
+/* read byte from input device, return as byte
+ * Input Port 0: read a byte from the 12c port (switches)
+ * Input Port 1: Read a byte from the serial port 
+ * Input Port 2: Return Serial Port Status (>0 means byte ready)
+*/
 byte input(byte address) {
 
     if (address == 0) {         // return byte on 12c input port
@@ -650,8 +651,8 @@ byte input(byte address) {
 
 void setup(void) {
 
-    Wire.setClock(400000L);     // makes no difference - left in for reference
-    
+    Wire.setClock(400000L);     // tried, makes no difference - left in for reference
+                                // (did NOT try to recompile arduino source)
     /* set up FRAM */
     fram.begin();
 
@@ -682,7 +683,7 @@ void setup(void) {
 
     /* set all LED's to off */
     Wire.beginTransmission(0x20);   // set up output
-    Wire.write(0x09);       // GPIO
+    Wire.write(0x09);               // GPIO
     Wire.write(0x00);
     Wire.endTransmission();
 
@@ -717,24 +718,23 @@ begin:
             frontpanel();  // if halt sw enabled, go to loader. Else run.
         }
         
-        if (PC >= MAXMEM) // account for dead memory
+        if (PC >= MAXMEM) // account for non-existant memory
             OP=0x00;
         else
             OP = fram.read8(PC);
 
         /* debugging - show address/opcode on serial port */
         if (DEBUG) {
-            char tmpout[strlen("PC:%4.4X  OP:%2.2X\n")+1];
-            sprintf(tmpout,"PC:%4.4X  OP:%2.2X\n",PC,OP);
+            char tmpout[strlen("PC:%4.4X  OP:%2.2X")+1];
+            sprintf(tmpout,"PC:%4.4X  OP:%2.2X",PC,OP);
             Serial.println(tmpout);
         }
 
 
-        /* This is the instruction decoder. Much is lifted from
+        /* This is the instruction decoder. Decoding style is lifted from
          * https://github.com/simh/simh/blob/master/ALTAIR/altair_cpu.c
          * since it's smaller and cleaner than my orig code. I cleaned
-         * up some things for this build, and tightened some code. Any bugs
-         * introduced are on me.  -kurt
+         * up some things for this build, and tightened some code. 
         */
 
 
@@ -1135,6 +1135,7 @@ begin:
                 break;
             }
 
+   /* after running some tests, I don't trust this DAA routine. I'll play with later */
             case 0x27: {                        // DAA
                 temp = A & 0x0F;
                 if (temp > 9 || AC > 0) {
@@ -1285,7 +1286,7 @@ begin:
 
          
             default:
-                PC += 1;        // for unused opcodes and NOP
+                PC += 1;        // for NOP & unused opcodes
                 break;
         }
 
