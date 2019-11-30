@@ -8,6 +8,8 @@
  * 
  * (C) k theis 11/2019 MIT license applies.
  * 
+ * version 1.04e 11/29/2019 All instructions passed op code checker xcpt DAA.
+ * version 1.04d 11/26/2019 Set parity flag (P) based on parity test, fix RLC,RRC,RAL
  * version 1.04c 11/26/2019 Change docs, removed unused vars. No functional changes.
  * version 1.04b 11/25/2019 fix things in debug() 
  * version 1.04a 11/25/2019 SBB: fix it right this time
@@ -447,7 +449,7 @@ void setarith(int val) {
     else
         Z = 0;
     AC = 0;             // only true w/8080, not for Z80
-    parity(val);
+    P = parity(val);
 
 }
 
@@ -465,7 +467,7 @@ void setlogical(int32_t reg)
       else
         Z = 0;
     AC = 0;
-    parity(reg);
+    P = parity(reg);
 }
 
 /* set flags after INR/DCR operation (8 bit only)*/
@@ -480,7 +482,7 @@ void setinc(int reg) {
       else
         Z = 0;
         
-    parity(reg);
+    P = parity(reg);
 
 }
 
@@ -1135,48 +1137,41 @@ begin:
                 break;
             }
 
-   /* after running some tests, I don't trust this DAA routine. I'll play with later */
+            /* I don't know enough yet to validate this opcode */
             case 0x27: {                        // DAA
+                uint16_t temp2;
+                AC = 0;
                 temp = A & 0x0F;
-                if (temp > 9 || AC > 0) {
+                temp2 = (A >> 4) & 0x0F;
+                
+                if (temp > 9 || AC == 1) {
                     temp += 6;
-                    A &= 0xF0;
-                    A |= temp & 0x0F;
-                    if (temp & 0x10)
-                        AC = 1;
-                    else
-                        AC = 0;
-                }
-                temp = (A >> 4) & 0x0F;
-                if (temp > 9 || AC > 0) {
-                    temp += 6;
-                    if (AC) temp++;
-                    A &= 0x0F;
-                    A |= (temp << 4);
-                }
-                if ((temp << 4) & 0x100)
                     C = 1;
-                else
-                    C = 0;
-                if (A & 0x80) {
-                    S = 1;
-                } else {
-                    S = 0;
+                    temp2 += 1;
                 }
-                if ((A & 0xff) == 0)
-                    Z = 1;
-                else
-                    Z = 0;
-                parity(A);
-                A = A & 0xFF;
+
+                if (temp2 > 9 || C == 1) 
+                    temp2 += 6;
+                    
+                A = ((temp2 << 4) | temp);
+                if (A > 255) C = 1;
+                A &= 0xFF;
+
+                Z = 0;
+                if (A==0) Z = 1;
+                P = parity(A);
+                S = 0;
+                if (A > 0x80) S = 1;
                 PC += 1;
-                break;
+                break;    
+            
             }
 
             case 0x07: {                        // RLC
                 C = 0;
-                C = (A << 9) & 1;
-                A = (A << 1) & 0xFF;
+                A = (A << 1);
+                if (A & 0x100) C = 1;
+                A &= 0xFF;
                 if (C)
                     A |= 0x01;
                 PC += 1;
@@ -1186,7 +1181,7 @@ begin:
             case 0x0f: {                        // RRC
                 C = 0;
                 if ((A & 0x01) == 1)
-                    C |= 1;
+                    C = 1;
                 A = (A >> 1) & 0xFF;
                 if (C)
                     A |= 0x80;
@@ -1197,8 +1192,9 @@ begin:
             case 0x17: {                        // RAL
                 temp = C;
                 C = 0;
-                C = (A << 9) & 1;
-                A = (A << 1) & 0xFF;
+                A = (A << 1);
+                if (A & 0x100) C = 1;
+                A &= 0xFF;
                 if (temp)
                     A |= 1;
                 else
@@ -1211,7 +1207,7 @@ begin:
                 temp = C;
                 C = 0;
                 if ((A & 0x01) == 1)
-                    C |= 1;
+                    C = 1;
                 A = (A >> 1) & 0xFF;
                 if (temp)
                     A |= 0x80;
