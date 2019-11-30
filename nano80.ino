@@ -8,6 +8,7 @@
  * 
  * (C) k theis 11/2019 MIT license applies.
  * 
+ * version 1.05  11/30/2019 DAA passes. All op codes passed the diag.asm check.
  * version 1.04e 11/29/2019 All instructions passed op code checker xcpt DAA.
  * version 1.04d 11/26/2019 Set parity flag (P) based on parity test, fix RLC,RRC,RAL
  * version 1.04c 11/26/2019 Change docs, removed unused vars. No functional changes.
@@ -1137,28 +1138,36 @@ begin:
                 break;
             }
 
-            /* I don't know enough yet to validate this opcode */
+            
             case 0x27: {                        // DAA
-                uint16_t temp2;
-                AC = 0;
-                temp = A & 0x0F;
-                temp2 = (A >> 4) & 0x0F;
+                uint8_t a_hi, a_lo;
+                a_lo = A & 0x0F; 
+                a_hi = (A >> 4) & 0x0F;
                 
-                if (temp > 9 || AC == 1) {
-                    temp += 6;
-                    C = 1;
-                    temp2 += 1;
+                if (a_lo > 9 || AC == 1) {
+                    a_lo += 6;
+                    if (a_lo > 0xf) {
+                        C = 1;
+                        a_hi += 1;
+                        
+                    }
                 }
+                a_lo &= 0x0f; 
 
-                if (temp2 > 9 || C == 1) 
-                    temp2 += 6;
+                if (a_hi > 9 ) a_hi += 6;
+                if (a_hi > 15) 
+                    C = 1;
+                else
+                    C = 0;
+                
+                a_hi &= 0xf;
                     
-                A = ((temp2 << 4) | temp);
-                if (A > 255) C = 1;
+                A = (a_hi << 4);
+                A |= a_lo;
                 A &= 0xFF;
 
                 Z = 0;
-                if (A==0) Z = 1;
+                if (A == 0) Z = 1;
                 P = parity(A);
                 S = 0;
                 if (A > 0x80) S = 1;
