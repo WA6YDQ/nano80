@@ -14,6 +14,9 @@ port as well as some development programs written in c.
 
 See the schematic for wiring.
 
+There is more detail on my blog at landfallnet.blogspot.com
+Look for the nano80 entry.
+
 I use a 32Kx8 FRAM for main memory. This slows it down a lot, but 
 it gives you lots of room to play around. If you want more speed, 
 change the fram.[read8/write8] to mem[] and set up about 1K of 
@@ -32,7 +35,10 @@ The input/output ports are defined as follows:
 
 ------------------------------
 
-I'm sure there are bugs. Please let me know so I can fix them.
+I posted an 8080 opcode tester in diag.asm. This is a brute-force
+8080 opcode tester. Ive run this over several days with good results
+(after I fixed the bugs). I trust this code, but there may still be
+issues. Please let me know if you find any.
 
 ------------------------------
 
