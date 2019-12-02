@@ -36,9 +36,8 @@ The input/output ports are defined as follows:
 ------------------------------
 
 I posted an 8080 opcode tester in diag.asm. This is a brute-force
-8080 opcode tester. Ive run this over several days with good results
-(after I fixed the bugs). I trust this code, but there may still be
-issues. Please let me know if you find any.
+8080 opcode tester. I've run this over several days with good results
+(after I fixed the bugs). 
 
 ------------------------------
 
