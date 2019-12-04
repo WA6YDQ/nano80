@@ -2,10 +2,14 @@
  
 ---------------------------------------- 
 asm80.c	8080 assembler
-version 4.1
+version 4.2
 07-13-2008	<theis.kurt@gmail.com> 	
 
-Revised 9/2/2008 
+
+Revised 12/2019 - allow loading . before certain key words 
+(.db, .equ etc)
+
+Revised 9/2/2008 - better error checking
 
 
 
@@ -13,7 +17,7 @@ This has more error checking, all the
 directives work as they should, and
 labels can be used for almost anything.
 
-I'm releasing this as GNU GPL license. 
+I'm releasing this as GNU GPL 3 license. 
 If you find this useful, send me a note. 
 Also if you find any errors, please
 let me know.
@@ -51,11 +55,11 @@ file.com (com format)
 
 int tokenCount = 0;		/* count the number of tokens in input file */
 int address = 0;		/* running count used in PASS 2 and 3 */
-int label_address[MAXLABEL];	/* assign address to a label */
+int *label_address;		/* assign address to a label */
 int label_count = 0;		/* count the number of labels found/used */
 int codenum = 0;		/* opcode value used in PASS 3 */
 int idx = 0;			/* index counter used in PASS 3 */
-int memory[65536];		/* array holding all assembled data */
+int *memory;			/* array holding all assembled data */
 int addr, addr1, addr2;		/* used to determine 3 byte opcode labels */
 int NCFLAG = 0;			/* command line option - remove colon from label (see below comments) */
 int FLAG = 0;			/* Gen Purpose FLAG */
@@ -156,28 +160,21 @@ FILE *sourcefile, *objfile, *prnfile;
 */
 int isReserved(char *token){	/* return 1 if match to reserved work, 0 if not */
 int n;
+const char reserved[21][8] = {"db",".db","DB",".DB", \
+    		   "ds",".ds","DS",".DS", \
+	           "dw",".dw","DW",".DW", \
+     		   "org",".org","ORG",".ORG", \
+		   "equ",".equ","EQU",".EQU"};
+
 	for (n=0; n<255; n++){
-		if (strcmp(token,opcodes[n])==0)
+		if (strcmp(token,opcodes[n])==0)	// test all opcodes
 			return 1;
 	}
 
-	/* now check for other reserved words */
-	if (strcmp(token,"DB")==0)
-		return 1;
-	if (strcmp(token,"db")==0)
-		return 1;
-	if (strcmp(token,"DS")==0)
-		return 1;
-	if (strcmp(token,"ds")==0)
-		return 1;
-	if (strcmp(token,"ORG")==0)
-		return 1;
-	if (strcmp(token,"org")==0)
-		return 1;	
-	if (strcmp(token,"equ")==0)
-		return 1;
-	if (strcmp(token,"EQU")==0)
-		return 1;
+	for (n=0; n<20; n++) {
+		if (strcmp(token,reserved[n])==0)	// other reserved words
+		    	return 1;
+	}
 
 	return 0;	/* everything else is OK */
 }
@@ -264,11 +261,21 @@ int byte;
         return(byte);
 }
 
-int getAddr(char *addr){	/* get address of passed variable */
+int getAddr(char *addr){	/* get address of passed variable - numbers can be 1234, 1234h, 0x1234 */
 int n;
+char value[10];
+
 	if (strlen(addr)==0)	/* discard bad token (last token will be null in pass 2) */
 		return -1;
 
+
+	/* for 0xnn type of hex numbers */
+	if (addr[1] == 'x') {
+		n=strtol(addr,NULL,0);
+		return n;
+	}
+
+	/* for 10h, 1234h type of hex numbers */
 	if ((addr[strlen(addr)-1] == 'h') || (addr[strlen(addr)-1] == 'H')){ /* hex number */
 		if (strlen(addr)==3){	/* ex 45H */
 			n = hex2dec(addr[1]);
@@ -310,12 +317,11 @@ int n;
 }
 
 
-/*
-*	isMbyteOpCode()
-* 	check if passed token is a multi-byte op code 
-*	return 0 if not, 1 if it is 
-*
-*/
+
+
+//	isMbyteOpCode()
+//	check if passed token is a multi-byte op code 
+//	return 0 if not, 1 if it is 
 
 int isMbyteOpCode(char *opcode){
 	int n;
@@ -327,10 +333,9 @@ int isMbyteOpCode(char *opcode){
 }
 
 
-/*
-*	usage() - display usage and exit
-*
-*/
+
+
+//	usage() - display usage and exit
 
 int usage(void){
 	printf("\n\nasm80 v4.0 - an 8080 assembler");
@@ -355,7 +360,17 @@ int usage(void){
 int main(int argc, char *argv[]){
 
 int i, n, ct;		/* used for token, ptoken */
-int l;
+int l, MEMFLAG = 0;
+
+	/* these are big, need to be on the heap. The rest can stay on the stack */
+	memory = malloc(65536*sizeof(int));
+	label_address = malloc(MAXLABEL+1*(sizeof(int)));
+	if (memory == NULL) MEMFLAG = 1;
+	if (label_address == NULL) MEMFLAG = 1;	
+	if (MEMFLAG) {
+	    	fprintf(stderr,"Memory allocation error\n");
+		exit(1);
+	}
 
 	for (n=0;n<65536;n++)
 		memory[n] = NOP_CODE;	/* fill array with code for NOP */
@@ -376,7 +391,7 @@ int l;
 		NCFLAG = 1;		/* turn on no colon option */
 		strcpy(sourceFile,argv[2]);	/* get source file name */
 	}
-	
+	NCFLAG = 1;	// no reason not to have it as default	
 
 	sourcefile = fopen(sourceFile,"r");
 	if (sourcefile == NULL){	/* check for valid source file */
@@ -535,10 +550,12 @@ int l;
 
 
 		/* check for org or ORG */
-		if ((strcmp(ptoken[n],"org")==0) || (strcmp(ptoken[n],"ORG")==0)){ 
-			/* check next byte - reserved word? */
+		if ((strcmp(ptoken[n],"org")==0) || (strcmp(ptoken[n],"ORG")==0) || \
+			(strcmp(ptoken[n],".org")==0) || (strcmp(ptoken[n],".ORG")==0)) {
+			
+		    	/* check next byte - reserved word? */
 			if (isReserved(ptoken[n+1])){
-				printf("\nError - token after ORG is a reserved word: %s %s",ptoken[n],ptoken[n+1]);
+				printf("\nError - token after %s is a reserved word: %s %s",ptoken[n],ptoken[n],ptoken[n+1]);
 				ERRFLAG = 1;
 			}
 			/* check if next byte is a label */
@@ -586,7 +603,8 @@ int l;
 		*  ptoken[n+1] is value of storage space 
 		*/
 
-		if ((strcmp(ptoken[n],"ds")==0) || (strcmp(ptoken[n],"DS")==0)){
+		if ((strcmp(ptoken[n],"ds")==0) || (strcmp(ptoken[n],"DS")==0) || \
+			(strcmp(ptoken[n],".ds")==0) || (strcmp(ptoken[n],".DS")==0)) {
 			/* check for reserved words */
 			if (isReserved(ptoken[n+1])){
 				printf("\nError - token after DS is a reserved word: %s %s",ptoken[n],ptoken[n+1]);
@@ -620,14 +638,15 @@ int l;
 
 		/*
 		*  check for DB (define byte) directive
-		*  ptoken[n] is DB or db, [n+1] is data
+		*  ptoken[n] is .DB or DB or db or .db, [n+1] is data
 		*/
 
-		if ((strcmp(ptoken[n],"db")==0) || (strcmp(ptoken[n],"DB")==0)){
+		if ((strcmp(ptoken[n],"db")==0) || (strcmp(ptoken[n],"DB")==0) || \
+			(strcmp(ptoken[n],".db")==0) || (strcmp(ptoken[n],".DB")==0)){
 			/* check for reserved words */
 			if (isReserved(ptoken[n+1])){
 				ERRFLAG = 1;
-				printf("\nError - token after DB is a reserved word: %s %s",ptoken[n],ptoken[n+1]);
+				printf("\nError - token after %s is a reserved word: %s %s",ptoken[n],ptoken[n],ptoken[n+1]);
 			}
 			/* check for number after DB */
 			if (getAddr(ptoken[n+1])>=0){
@@ -658,7 +677,8 @@ int l;
 		/* check for equ/EQU labels */
 		/* ptoken[n] should be a label, [n+1] the equ statement, and [n+2] the data */
 
-		if ((strcmp(ptoken[n+1],"equ")==0)|| (strcmp(ptoken[n+1],"EQU")==0)){
+		if ((strcmp(ptoken[n+1],"equ")==0)|| (strcmp(ptoken[n+1],"EQU")==0) || \
+			(strcmp(ptoken[n+1],".equ")==0) || (strcmp(ptoken[n+1],".EQU")==0)){
 			/* check for a reserved word */
 			if (isReserved(ptoken[n+2])){
 				ERRFLAG = 1;
@@ -815,7 +835,8 @@ int l;
 
 
                 /* check for org or ORG */
-                if ((strcmp(ptoken[n],"org")==0) || (strcmp(ptoken[n],"ORG")==0)){
+                if ((strcmp(ptoken[n],"org")==0) || (strcmp(ptoken[n],"ORG")==0) || \
+			(strcmp(ptoken[n],".org")==0) || (strcmp(ptoken[n],".ORG")==0)){
 			if (isLabel(ptoken[n+1]) != -1){		/* next token is a label */
 				address = isLabel(ptoken[n+1]);
 				fprintf(prnfile,"\n\n%s  (%s)\t%4.4X\n",ptoken[n],ptoken[n+1],address);
@@ -972,7 +993,8 @@ int l;
 
 
 
-		if ((strcmp(ptoken[n+1],"equ")==0) || (strcmp(ptoken[n+1],"EQU")==0)){
+		if ((strcmp(ptoken[n+1],"equ")==0) || (strcmp(ptoken[n+1],"EQU")==0) || \
+			(strcmp(ptoken[n+1],".equ")==0) || (strcmp(ptoken[n+1],".EQU")==0)){
 			/* line is equate - ignore */
 			fprintf(prnfile,"\n%s\t%s\t%s",ptoken[n],ptoken[n+1],ptoken[n+2]);
 			n += 3;
@@ -981,7 +1003,8 @@ int l;
 	
 		
 		/* check for DS/ds directive */
-		if ((strcmp(ptoken[n],"DS")==0) || (strcmp(ptoken[n],"ds")==0)){
+		if ((strcmp(ptoken[n],"DS")==0) || (strcmp(ptoken[n],"ds")==0) || \
+			(strcmp(ptoken[n],".DS")==0) || (strcmp(ptoken[n],".ds")==0)){
 			idx = getAddr(ptoken[n+1]);
 			if (idx == -1){		/* error */
 				printf("\nError - value after DS not a number");
@@ -996,7 +1019,8 @@ int l;
 		}
 
 		/* check for DB/db directive */
-		if ((strcmp(ptoken[n],"db")==0) || (strcmp(ptoken[n],"DB")==0)){
+		if ((strcmp(ptoken[n],"db")==0) || (strcmp(ptoken[n],"DB")==0) || \
+			(strcmp(ptoken[n],".db")==0) || (strcmp(ptoken[n],".DB")==0)){
 			/* check for number after DB */
 			i = getAddr(ptoken[n+1]);
 			if (i >= 0){
