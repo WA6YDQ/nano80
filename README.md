@@ -33,6 +33,13 @@ The input/output ports are defined as follows:
 - OUT 0x00 is the 8 LED's 
 - OUT 0x01 is the serial port using the arduino
 
+=========================
+NOTE: The .c programs are utility programs that run on a linux computer
+and are not part of the arduino code. Only put the .ino file into the
+arduino workspace when building this project. 
+==========================
+
+
 ------------------------------
 
 I posted an 8080 opcode tester in diag.asm. This is a brute-force
